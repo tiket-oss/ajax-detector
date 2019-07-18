@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/chromedp/chromedp"
+	"github.com/hawari17/page-profiler/network"
 )
 
 func createOutputFile(filePath string) (io.Writer, error) {
@@ -45,5 +46,5 @@ func main() {
 	ctx, cancel = context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
-	MonitorPageNetwork(ctx, outFile, *pageURL)
+	network.MonitorPageNetwork(ctx, outFile, *pageURL)
 }
