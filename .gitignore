@@ -1,2 +1,5 @@
 # Ignore binary
 page-profiler
+
+# Ignore output file
+*.out

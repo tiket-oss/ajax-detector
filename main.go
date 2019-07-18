@@ -1,17 +1,22 @@
-// Command click is a chromedp example demonstrating how to use a selector to
-// click on an element.
 package main
 
 import (
 	"context"
+	"flag"
 	"log"
+	"os"
 	"time"
 
-	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
 )
 
 func main() {
+
+	pageURL := flag.String("page-url", "", "URL of the page to be profiled")
+	filePath := flag.String("file-path", "output.txt", "Path of the file to be written to")
+
+	flag.Parse()
+
 	// create chrome instance
 	ctx, cancel := chromedp.NewContext(
 		context.Background(),
@@ -23,25 +28,11 @@ func main() {
 	ctx, cancel = context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
-	chromedp.ListenTarget(ctx, func(v interface{}) {
-		log.Printf("Event triggered: %T\n", v)
-
-		if event, ok := v.(*network.EventRequestWillBeSent); ok {
-			requestInfo, err := event.Request.MarshalJSON()
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			log.Println(string(requestInfo))
-		}
-	})
-
-	// navigate to a page, wait for an element, click
-	err := chromedp.Run(ctx,
-		network.Enable(),
-		chromedp.Navigate(`https://www.tiket.com/kereta-api`),
-	)
+	logFile, err := os.Create(*filePath)
 	if err != nil {
 		log.Fatal(err)
+		os.Exit(1)
 	}
+
+	MonitorPageNetwork(ctx, logFile, *pageURL)
 }
