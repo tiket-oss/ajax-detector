@@ -9,6 +9,9 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
+// MonitorPageNetwork runs NavigateAction towards pageURL against a chromedp context 
+// while listening for network.EventRequestWillBeSent event. 
+// All of those event's Request object will be written as the result.
 func MonitorPageNetwork(ctx context.Context, writer io.Writer, pageURL string) {
 
 	chromedp.ListenTarget(ctx, func(v interface{}) {
@@ -26,7 +29,6 @@ func MonitorPageNetwork(ctx context.Context, writer io.Writer, pageURL string) {
 		}
 	})
 
-	// navigate to a page, wait for an element, click
 	err := chromedp.Run(ctx,
 		network.Enable(),
 		chromedp.Navigate(pageURL),
