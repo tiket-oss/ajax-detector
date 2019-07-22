@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/chromedp/chromedp"
@@ -39,4 +40,5 @@ func TestNetworkMonitoring(t *testing.T) {
 	network.MonitorPageNetwork(ctx, buf, server.URL)
 
 	assert.NotEmpty(t, buf, "Output should not be empty")
+	assert.Equal(t, 5, strings.Count(buf.String(), "\n"))
 }
