@@ -6,6 +6,6 @@ build:
 	go build -o bin/$(TARGET)
 
 .PHONY: testrun
-testrun:
-	@echo "Running $(TARGET) with default flags"
+testrun: build
+	@echo "Running $(TARGET) with default flags..."
 	./bin/$(TARGET) -page-url "$(SAMPLE_PAGE_URL)"
