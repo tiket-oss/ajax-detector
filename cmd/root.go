@@ -19,8 +19,8 @@ var outputPath string
 var configPath string
 
 func init() {
-	rootCmd.LocalNonPersistentFlags().StringVarP(&outputPath, "output-path", "o", "output.txt", "Specify directory Path path for output")
-	rootCmd.LocalNonPersistentFlags().StringVarP(&configPath, "config-path", "c", "config.toml", "Path to configuration file")
+	rootCmd.PersistentFlags().StringVarP(&outputPath, "output-path", "o", "output.txt", "Specify directory Path path for output")
+	rootCmd.PersistentFlags().StringVarP(&configPath, "config-path", "c", "config.toml", "Path to configuration file")
 }
 
 var rootCmd = &cobra.Command{
