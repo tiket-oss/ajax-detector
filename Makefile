@@ -1,4 +1,4 @@
-TARGET = page-profiler
+TARGET = page-profile
 SAMPLE_PAGE_URL = https://www.tiket.com
 
 .PHONY: build
@@ -8,4 +8,4 @@ build:
 .PHONY: testrun
 testrun: build
 	@echo "Running $(TARGET) with default flags..."
-	./bin/$(TARGET) -page-url "$(SAMPLE_PAGE_URL)"
+	./bin/$(TARGET) $(SAMPLE_PAGE_URL)

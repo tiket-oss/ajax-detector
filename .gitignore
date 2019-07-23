@@ -15,5 +15,8 @@ bin/
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
-# Ignore default directory for storing outputs
-out/
+# Ignore default file for storing outputs
+output.txt
+
+# Ignore default configuration file
+config.toml
