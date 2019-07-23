@@ -4,8 +4,27 @@ This tool utilises [chromedp](http://github.com/chromedp/chromedp), an automated
 
 ## Installation
 
-This project is distributed as a [Go Module](https://github.com/golang/go/wiki/Modules). To use this tool, after cloning it in your machine, run the ```make build``` command on the clone directory, and the binary will be built on the `bin/` directory of the repository.
+To use this tool, after cloning it in your machine, run the `make build` command on the clone directory, it basically will run a `go build` command, and the binary will be built on the `bin/` directory of the repository.
 
 ## Usage
 
-Run the compiled binary and provide the target page and output file via `-page-url` and `-file-path` respectively, so the command will look like something along this line: ```./bin/page-profiler -page-url "www.tiket.com" -file-path "~/results/output.txt"
+There are couple of ways you can run this tool. If you want to run against a single web page, Simply by passing the page URL as a command will suffice:
+
+```text
+./page-profile www.tiket.com
+```
+
+However, if you'd like to profile several web pages, using the previous snippet multiple times may be cumbersome. In order to ease this, there's a mechanism to load a configuration file by using the `--config-path` file (or just `-c` for short). Simply provide the path to your configuration file as the flag value. **NOTE:** using this flag will ignore the argument in the previous example.
+
+```text
+./page-profile -c path/to/config.toml
+```
+
+On top of the basic usage, you can use these following flags as well.
+
+```text
+Flags:
+  -h, --help                 help for page-profile
+  -o, --output-path string   Specify directory Path path for output (default "output.txt")
+  -t, --timeout int          Set timeout for the execution, in seconds (default 15)
+```
