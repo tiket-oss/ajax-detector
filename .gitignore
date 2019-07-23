@@ -17,3 +17,6 @@ bin/
 
 # Ignore default file for storing outputs
 output.txt
+
+# Ignore default configuration file
+config.toml
