@@ -29,7 +29,7 @@ var timeout int
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&outputPath, "output-path", "o", "output.txt", "Specify directory Path path for output")
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config-path", "c", "config.toml", "Path to configuration file")
-	rootCmd.PersistentFlags().IntVarP(&timeout, "timeout", "t", 15, "Set timeout for the execution, in seconds")
+	rootCmd.PersistentFlags().IntVarP(&timeout, "timeout", "t", 15, "Set timeout for the execution, in seconds (defaults to 15 seconds)")
 }
 
 var rootCmd = &cobra.Command{
