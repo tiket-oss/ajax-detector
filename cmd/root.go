@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -49,7 +48,7 @@ var rootCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			pages = append(pages, ajaxdetector.PageInfo{name: fmt.Sprintf("%s - Network", pageURL), url: pageURL})
+			pages = append(pages, ajaxdetector.PageInfo{URL: pageURL})
 		}
 
 		outFile, err := createOutputFile(outputPath)
@@ -68,8 +67,8 @@ var rootCmd = &cobra.Command{
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
 		defer cancel()
 
-		for _, page := range pages {
-			network.MonitorPageNetwork(ctx, outFile, page.url)
+		if err := network.LogAjaxRequest(ctx, outFile, pages); err != nil {
+			log.Fatal(err)
 		}
 	},
 }

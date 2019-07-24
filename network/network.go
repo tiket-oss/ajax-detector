@@ -13,7 +13,7 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-func formatRequestLog(request *network.Request) ([]byte, error) {
+func formatRequestLog(request network.Request) ([]byte, error) {
 	requestLog, err := request.MarshalJSON()
 	if err == nil {
 		newline := "\n"
@@ -24,7 +24,31 @@ func formatRequestLog(request *network.Request) ([]byte, error) {
 }
 
 // LogAjaxRequest will call monitorPageNetwork on every pages, logging the result using writer
-func LogAjaxRequest(ctx context.Context, writer io.Writer, pages []ajaxdetector.PageInfo) {
+func LogAjaxRequest(ctx context.Context, writer io.Writer, pages []ajaxdetector.PageInfo) error {
+	pageRequests := make([]network.Request, 0)
+	var requestLogs []byte
+
+	for _, page := range pages {
+		requests, err := MonitorPageNetwork(ctx, page.URL)
+		if err != nil {
+			return err
+		}
+
+		pageRequests = append(pageRequests, requests...)
+	}
+
+	for _, pageRequest := range pageRequests {
+		requestLog, err := formatRequestLog(pageRequest)
+		if err != nil {
+			return err
+		}
+
+		requestLogs = append(requestLogs, requestLog...)
+	}
+
+	_, err := writer.Write(requestLogs)
+
+	return err
 }
 
 // MonitorPageNetwork runs NavigateAction towards pageURL against a chromedp context
