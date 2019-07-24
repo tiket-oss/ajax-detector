@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 
+	ajaxdetector "github.com/tiket-libre/ajax-detector"
+
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
 )
@@ -21,33 +23,36 @@ func formatRequestLog(request *network.Request) ([]byte, error) {
 	return requestLog, err
 }
 
+// LogAjaxRequest will call monitorPageNetwork on every pages, logging the result using writer
+func LogAjaxRequest(ctx context.Context, writer io.Writer, pages []ajaxdetector.PageInfo) {
+}
+
 // MonitorPageNetwork runs NavigateAction towards pageURL against a chromedp context
 // while listening for network.EventRequestWillBeSent event.
-// All of those event's Request object will be written as the result.
-func MonitorPageNetwork(ctx context.Context, writer io.Writer, pageURL string) {
-	writeChan := make(chan []byte, 4)
+// All of those event's Request object will be returned as the result.
+func MonitorPageNetwork(ctx context.Context, pageURL string) ([]network.Request, error) {
+	requests := make([]network.Request, 0)
+
+	var group sync.WaitGroup
+	reqChan := make(chan network.Request, 4)
 	signalFinish := make(chan int)
-	var wg sync.WaitGroup
 
 	chromedp.ListenTarget(ctx, func(v interface{}) {
-		if ev, ok := v.(*network.EventRequestWillBeSent); ok && (ev.Type == network.ResourceTypeFetch || ev.Type == network.ResourceTypeXHR) {
-			wg.Add(1)
-			go func(event *network.EventRequestWillBeSent) {
-				requestLog, err := formatRequestLog(event.Request)
-				if err != nil {
-					log.Fatal(err)
-				}
+		switch event := v.(type) {
+		case *network.EventRequestWillBeSent:
+			if event.Type == network.ResourceTypeFetch || event.Type == network.ResourceTypeXHR {
+				group.Add(1)
 
-				writeChan <- requestLog
-			}(ev)
+				go func() {
+					request := *event.Request // https://golang.org/doc/faq#closures_and_goroutines
+					reqChan <- request
+				}()
+			}
 		}
 	})
 
-	if err := chromedp.Run(ctx,
-		network.Enable(),
-		chromedp.Navigate(pageURL),
-	); err != nil {
-		log.Fatal(err)
+	if err := chromedp.Run(ctx, network.Enable(), chromedp.Navigate(pageURL)); err != nil {
+		return requests, err
 	}
 
 	/*
@@ -67,23 +72,20 @@ func MonitorPageNetwork(ctx context.Context, writer io.Writer, pageURL string) {
 			}
 		}
 
-		wg.Wait()
+		group.Wait()
 		signalFinish <- 0
 	}()
 
-	var request []byte
-	var done bool
-	for done == false {
+Loop:
+	for {
 		select {
-		case requestLog := <-writeChan:
-			request = append(request, requestLog...)
-			wg.Done()
 		case <-signalFinish:
-			done = true
+			break Loop
+		case requestLog := <-reqChan:
+			requests = append(requests, requestLog)
+			group.Done()
 		}
 	}
 
-	if _, err := writer.Write(request); err != nil {
-		log.Fatal(err)
-	}
+	return requests, nil
 }

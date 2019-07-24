@@ -1,13 +1,11 @@
 package network_test
 
 import (
-	"bytes"
 	"context"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/chromedp/chromedp"
@@ -36,9 +34,8 @@ func TestNetworkMonitoring(t *testing.T) {
 	)
 	defer cancel()
 
-	buf := new(bytes.Buffer)
-	network.MonitorPageNetwork(ctx, buf, server.URL)
+	requests, err := network.MonitorPageNetwork(ctx, server.URL)
 
-	assert.NotEmpty(t, buf, "Output should not be empty")
-	assert.Equal(t, 5, strings.Count(buf.String(), "\n"))
+	assert.NoError(t, err, "Should not return error")
+	assert.Empty(t, requests, "Requests should be empty")
 }
