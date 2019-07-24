@@ -14,7 +14,7 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/spf13/cobra"
 
-	"github.com/hawari17/page-profiler/network"
+	"github.com/tiket-libre/ajax-detector/network"
 )
 
 type pageInfo struct {
@@ -39,7 +39,7 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		pages := make([]pageInfo, 0)
 
-		if configPath != "" {
+		if cmd.Flags().Changed("config-path") {
 			var err error
 			pages, err = readFromConfigFile(configPath)
 			if err != nil {

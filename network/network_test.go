@@ -13,7 +13,7 @@ import (
 	"github.com/chromedp/chromedp"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/hawari17/page-profiler/network"
+	"github.com/tiket-libre/ajax-detector/network"
 )
 
 func TestNetworkMonitoring(t *testing.T) {

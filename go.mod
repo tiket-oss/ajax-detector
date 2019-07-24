@@ -1,4 +1,4 @@
-module github.com/hawari17/page-profiler
+module github.com/tiket-libre/ajax-detector
 
 go 1.12
 
