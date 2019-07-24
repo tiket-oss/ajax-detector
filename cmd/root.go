@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/asaskevich/govalidator"
-	"github.com/chromedp/chromedp"
 	"github.com/pelletier/go-toml"
 	"github.com/spf13/cobra"
 
@@ -57,14 +56,8 @@ var rootCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		ctx, cancel := chromedp.NewContext(
-			context.Background(),
-			chromedp.WithLogf(log.Printf),
-		)
-		defer cancel()
-
 		// Create a timeout
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
 		defer cancel()
 
 		if err := network.LogAjaxRequest(ctx, outFile, pages); err != nil {

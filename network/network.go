@@ -12,6 +12,7 @@ import (
 
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
+	"golang.org/x/sync/errgroup"
 )
 
 func formatRequestLog(request network.Request) []string {
@@ -21,22 +22,42 @@ func formatRequestLog(request network.Request) []string {
 
 // LogAjaxRequest will call monitorPageNetwork on every pages, logging the result using writer
 func LogAjaxRequest(ctx context.Context, writer io.Writer, pages []ajaxdetector.PageInfo) error {
-	pageRequests := make([]network.Request, 0)
 	requestLogs := [][]string{
 		{"Referer", "URL", "Method"},
 	}
 
-	for _, page := range pages {
-		requests, err := MonitorPageNetwork(ctx, page.URL)
-		if err != nil {
-			return err
-		}
+	requestsChan := make(chan []network.Request, len(pages))
+	group, ctx := errgroup.WithContext(ctx)
 
-		pageRequests = append(pageRequests, requests...)
+	// Create a new browser
+	ctx, cancel := chromedp.NewContext(ctx, chromedp.WithLogf(log.Printf))
+	defer cancel()
+
+	for _, page := range pages {
+		pageURL := page.URL // https://golang.org/doc/faq#closures_and_goroutines
+		group.Go(func() error {
+			// Create new tab for each page
+			ctxt, cancel := chromedp.NewContext(ctx)
+			defer cancel()
+
+			requests, err := MonitorPageNetwork(ctxt, pageURL)
+			if err == nil {
+				requestsChan <- requests
+			}
+
+			return err
+		})
 	}
 
-	for _, pageRequest := range pageRequests {
-		requestLogs = append(requestLogs, formatRequestLog(pageRequest))
+	if err := group.Wait(); err != nil {
+		return err
+	}
+
+	close(requestsChan)
+	for requests := range requestsChan {
+		for _, request := range requests {
+			requestLogs = append(requestLogs, formatRequestLog(request))
+		}
 	}
 
 	csvWriter := csv.NewWriter(writer)
