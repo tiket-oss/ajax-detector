@@ -14,13 +14,9 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/spf13/cobra"
 
+	ajaxdetector "github.com/tiket-libre/ajax-detector"
 	"github.com/tiket-libre/ajax-detector/network"
 )
-
-type pageInfo struct {
-	name string
-	url  string
-}
 
 var outputPath string
 var configPath string
@@ -37,7 +33,7 @@ var rootCmd = &cobra.Command{
 	Short: "Page Profile is a tool to analyze web page using Chrome DevTools",
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		pages := make([]pageInfo, 0)
+		pages := make([]ajaxdetector.PageInfo, 0)
 
 		if cmd.Flags().Changed("config-path") {
 			var err error
@@ -53,7 +49,7 @@ var rootCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			pages = append(pages, pageInfo{name: fmt.Sprintf("%s - Network", pageURL), url: pageURL})
+			pages = append(pages, ajaxdetector.PageInfo{name: fmt.Sprintf("%s - Network", pageURL), url: pageURL})
 		}
 
 		outFile, err := createOutputFile(outputPath)
@@ -95,8 +91,8 @@ func createOutputFile(filePath string) (io.Writer, error) {
 	return os.Create(filePath)
 }
 
-func readFromConfigFile(configPath string) ([]pageInfo, error) {
-	pages := make([]pageInfo, 0)
+func readFromConfigFile(configPath string) ([]ajaxdetector.PageInfo, error) {
+	pages := make([]ajaxdetector.PageInfo, 0)
 
 	config, err := toml.LoadFile(configPath)
 	if err != nil {
@@ -105,9 +101,9 @@ func readFromConfigFile(configPath string) ([]pageInfo, error) {
 
 	pageConfigs := config.Get("pages").([]*toml.Tree)
 	for _, pageConfig := range pageConfigs {
-		pages = append(pages, pageInfo{
-			name: pageConfig.Get("name").(string),
-			url:  pageConfig.Get("url").(string),
+		pages = append(pages, ajaxdetector.PageInfo{
+			Name: pageConfig.Get("name").(string),
+			URL:  pageConfig.Get("url").(string),
 		})
 	}
 
