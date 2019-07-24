@@ -17,6 +17,7 @@ bin/
 
 # Ignore default file for storing outputs
 output.txt
+output.csv
 
 # Ignore default configuration file
 config.toml

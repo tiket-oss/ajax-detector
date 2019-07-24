@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -10,24 +9,19 @@ import (
 	"time"
 
 	"github.com/asaskevich/govalidator"
-	"github.com/chromedp/chromedp"
 	"github.com/pelletier/go-toml"
 	"github.com/spf13/cobra"
 
+	ajaxdetector "github.com/tiket-libre/ajax-detector"
 	"github.com/tiket-libre/ajax-detector/network"
 )
-
-type pageInfo struct {
-	name string
-	url  string
-}
 
 var outputPath string
 var configPath string
 var timeout int
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&outputPath, "output-path", "o", "output.txt", "Specify directory Path path for output")
+	rootCmd.PersistentFlags().StringVarP(&outputPath, "output-path", "o", "output.csv", "Specify directory Path path for output")
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config-path", "c", "config.toml", "Path to configuration file")
 	rootCmd.PersistentFlags().IntVarP(&timeout, "timeout", "t", 15, "Set timeout for the execution, in seconds")
 }
@@ -37,7 +31,7 @@ var rootCmd = &cobra.Command{
 	Short: "Page Profile is a tool to analyze web page using Chrome DevTools",
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		pages := make([]pageInfo, 0)
+		pages := make([]ajaxdetector.PageInfo, 0)
 
 		if cmd.Flags().Changed("config-path") {
 			var err error
@@ -53,7 +47,7 @@ var rootCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			pages = append(pages, pageInfo{name: fmt.Sprintf("%s - Network", pageURL), url: pageURL})
+			pages = append(pages, ajaxdetector.PageInfo{URL: pageURL})
 		}
 
 		outFile, err := createOutputFile(outputPath)
@@ -62,18 +56,12 @@ var rootCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		ctx, cancel := chromedp.NewContext(
-			context.Background(),
-			chromedp.WithLogf(log.Printf),
-		)
-		defer cancel()
-
 		// Create a timeout
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
 		defer cancel()
 
-		for _, page := range pages {
-			network.MonitorPageNetwork(ctx, outFile, page.url)
+		if err := network.LogAjaxRequest(ctx, outFile, pages); err != nil {
+			log.Fatal(err)
 		}
 	},
 }
@@ -95,8 +83,8 @@ func createOutputFile(filePath string) (io.Writer, error) {
 	return os.Create(filePath)
 }
 
-func readFromConfigFile(configPath string) ([]pageInfo, error) {
-	pages := make([]pageInfo, 0)
+func readFromConfigFile(configPath string) ([]ajaxdetector.PageInfo, error) {
+	pages := make([]ajaxdetector.PageInfo, 0)
 
 	config, err := toml.LoadFile(configPath)
 	if err != nil {
@@ -105,9 +93,9 @@ func readFromConfigFile(configPath string) ([]pageInfo, error) {
 
 	pageConfigs := config.Get("pages").([]*toml.Tree)
 	for _, pageConfig := range pageConfigs {
-		pages = append(pages, pageInfo{
-			name: pageConfig.Get("name").(string),
-			url:  pageConfig.Get("url").(string),
+		pages = append(pages, ajaxdetector.PageInfo{
+			Name: pageConfig.Get("name").(string),
+			URL:  pageConfig.Get("url").(string),
 		})
 	}
 
