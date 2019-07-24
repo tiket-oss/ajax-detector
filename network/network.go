@@ -15,18 +15,23 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func formatRequestLog(request network.Request) []string {
-	referer := request.Headers["Referer"].(string)
-	return []string{referer, request.URL, request.Method}
+func formatEventLog(ev interface{}) []string {
+	switch event := ev.(type) {
+	case *network.EventRequestWillBeSent:
+		referer := event.Request.Headers["Referer"].(string)
+		return []string{referer, event.Request.URL, event.Request.Method}
+	}
+
+	return nil
 }
 
 // LogAjaxRequest will call monitorPageNetwork on every pages, logging the result using writer
 func LogAjaxRequest(ctx context.Context, writer io.Writer, pages []ajaxdetector.PageInfo) error {
-	requestLogs := [][]string{
+	eventLogs := [][]string{
 		{"Referer", "URL", "Method"},
 	}
 
-	requestsChan := make(chan []network.Request, len(pages))
+	eventsChan := make(chan []interface{}, len(pages))
 	group, ctx := errgroup.WithContext(ctx)
 
 	// Create a new browser
@@ -40,9 +45,9 @@ func LogAjaxRequest(ctx context.Context, writer io.Writer, pages []ajaxdetector.
 			ctxt, cancel := chromedp.NewContext(ctx)
 			defer cancel()
 
-			requests, err := MonitorPageNetwork(ctxt, pageURL)
+			events, err := MonitorPageNetwork(ctxt, pageURL)
 			if err == nil {
-				requestsChan <- requests
+				eventsChan <- events
 			}
 
 			return err
@@ -53,25 +58,25 @@ func LogAjaxRequest(ctx context.Context, writer io.Writer, pages []ajaxdetector.
 		return err
 	}
 
-	close(requestsChan)
-	for requests := range requestsChan {
-		for _, request := range requests {
-			requestLogs = append(requestLogs, formatRequestLog(request))
+	close(eventsChan)
+	for events := range eventsChan {
+		for _, event := range events {
+			eventLogs = append(eventLogs, formatEventLog(event))
 		}
 	}
 
 	csvWriter := csv.NewWriter(writer)
-	return csvWriter.WriteAll(requestLogs)
+	return csvWriter.WriteAll(eventLogs)
 }
 
 // MonitorPageNetwork runs NavigateAction towards pageURL against a chromedp context
-// while listening for network.EventRequestWillBeSent event.
-// All of those event's Request object will be returned as the result.
-func MonitorPageNetwork(ctx context.Context, pageURL string) ([]network.Request, error) {
-	requests := make([]network.Request, 0)
+// while listening for network.EventRequestWillBeSent and network.EventResponseReceived event.
+// All of those events object will be returned as the result.
+func MonitorPageNetwork(ctx context.Context, pageURL string) ([]interface{}, error) {
+	events := make([]interface{}, 0)
 
 	var group sync.WaitGroup
-	reqChan := make(chan network.Request, 4)
+	eventChan := make(chan interface{}, 8)
 	signalFinish := make(chan int)
 
 	chromedp.ListenTarget(ctx, func(v interface{}) {
@@ -79,17 +84,15 @@ func MonitorPageNetwork(ctx context.Context, pageURL string) ([]network.Request,
 		case *network.EventRequestWillBeSent:
 			if event.Type == network.ResourceTypeFetch || event.Type == network.ResourceTypeXHR {
 				group.Add(1)
-
 				go func() {
-					request := *event.Request // https://golang.org/doc/faq#closures_and_goroutines
-					reqChan <- request
+					eventChan <- event
 				}()
 			}
 		}
 	})
 
 	if err := chromedp.Run(ctx, network.Enable(), chromedp.Navigate(pageURL)); err != nil {
-		return requests, err
+		return events, err
 	}
 
 	/*
@@ -118,11 +121,11 @@ Loop:
 		select {
 		case <-signalFinish:
 			break Loop
-		case requestLog := <-reqChan:
-			requests = append(requests, requestLog)
+		case event := <-eventChan:
+			events = append(events, event)
 			group.Done()
 		}
 	}
 
-	return requests, nil
+	return events, nil
 }
