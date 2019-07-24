@@ -2,6 +2,7 @@ package network
 
 import (
 	"context"
+	"encoding/csv"
 	"io"
 	"log"
 	"strings"
@@ -13,20 +14,17 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-func formatRequestLog(request network.Request) ([]byte, error) {
-	requestLog, err := request.MarshalJSON()
-	if err == nil {
-		newline := "\n"
-		requestLog = append(requestLog, newline...)
-	}
-
-	return requestLog, err
+func formatRequestLog(request network.Request) []string {
+	referer := request.Headers["Referer"].(string)
+	return []string{referer, request.URL, request.Method}
 }
 
 // LogAjaxRequest will call monitorPageNetwork on every pages, logging the result using writer
 func LogAjaxRequest(ctx context.Context, writer io.Writer, pages []ajaxdetector.PageInfo) error {
 	pageRequests := make([]network.Request, 0)
-	var requestLogs []byte
+	requestLogs := [][]string{
+		{"Referer", "URL", "Method"},
+	}
 
 	for _, page := range pages {
 		requests, err := MonitorPageNetwork(ctx, page.URL)
@@ -38,17 +36,11 @@ func LogAjaxRequest(ctx context.Context, writer io.Writer, pages []ajaxdetector.
 	}
 
 	for _, pageRequest := range pageRequests {
-		requestLog, err := formatRequestLog(pageRequest)
-		if err != nil {
-			return err
-		}
-
-		requestLogs = append(requestLogs, requestLog...)
+		requestLogs = append(requestLogs, formatRequestLog(pageRequest))
 	}
 
-	_, err := writer.Write(requestLogs)
-
-	return err
+	csvWriter := csv.NewWriter(writer)
+	return csvWriter.WriteAll(requestLogs)
 }
 
 // MonitorPageNetwork runs NavigateAction towards pageURL against a chromedp context
