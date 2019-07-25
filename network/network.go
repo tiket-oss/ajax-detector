@@ -119,7 +119,6 @@ func MonitorPageNetwork(ctx context.Context, pageURL string) ([]interface{}, err
 
 	var group sync.WaitGroup
 	eventChan := make(chan interface{}, 8)
-	signalFinish := make(chan int)
 
 	chromedp.ListenTarget(ctx, func(v interface{}) {
 		switch event := v.(type) {
@@ -156,18 +155,12 @@ func MonitorPageNetwork(ctx context.Context, pageURL string) ([]interface{}, err
 		}
 
 		group.Wait()
-		signalFinish <- 0
+		close(eventChan)
 	}()
 
-Loop:
-	for {
-		select {
-		case <-signalFinish:
-			break Loop
-		case event := <-eventChan:
-			events = append(events, event)
-			group.Done()
-		}
+	for event := range eventChan {
+		events = append(events, event)
+		group.Done()
 	}
 
 	return events, nil
