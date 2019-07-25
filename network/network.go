@@ -118,7 +118,7 @@ func MonitorPageNetwork(ctx context.Context, pageURL string) ([]interface{}, err
 	events := make([]interface{}, 0)
 
 	var group sync.WaitGroup
-	eventChan := make(chan interface{}, 8)
+	eventChan := make(chan interface{}, 16)
 
 	chromedp.ListenTarget(ctx, func(v interface{}) {
 		switch event := v.(type) {
