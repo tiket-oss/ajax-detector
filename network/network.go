@@ -91,19 +91,18 @@ func LogAjaxRequest(ctx context.Context, writer io.Writer, pages []ajaxdetector.
 	if err := group.Wait(); err != nil {
 		return err
 	}
-
-	eventGroup := make(map[string]networkRoundTrip)
 	close(eventsChan)
 
 	for events := range eventsChan {
+		eventGroup := make(map[string]networkRoundTrip)
 		for _, event := range events {
 			pairRequestEvent(event, eventGroup)
 		}
-	}
 
-	for _, relatedEvent := range eventGroup {
-		if relatedEvent.requestEvent != nil && relatedEvent.responseEvent != nil {
-			eventLogs = append(eventLogs, relatedEvent.formatLog())
+		for _, relatedEvent := range eventGroup {
+			if relatedEvent.requestEvent != nil && relatedEvent.responseEvent != nil {
+				eventLogs = append(eventLogs, relatedEvent.formatLog())
+			}
 		}
 	}
 
