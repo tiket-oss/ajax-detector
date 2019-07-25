@@ -36,6 +36,20 @@ func getResourceType(event interface{}) network.ResourceType {
 	}
 }
 
+// getResourceType is a makeshift function to retrieve the RequestID value
+// from various event. Think about an interface, but since these events don't share any,
+// this function serve a similar purpose.
+func getRequestID(event interface{}) network.RequestID {
+	switch ev := event.(type) {
+	case *network.EventRequestWillBeSent:
+		return ev.RequestID
+	case *network.EventResponseReceived:
+		return ev.RequestID
+	default:
+		return ""
+	}
+}
+
 func formatEventLog(eventGroup networkRoundTrip) []string {
 	page := eventGroup.requestEvent.Request.Headers["Referer"].(string)
 	status := strconv.FormatInt(eventGroup.responseEvent.Response.Status, 10)
@@ -58,29 +72,21 @@ func formatEventLog(eventGroup networkRoundTrip) []string {
 }
 
 func pairRequestEvent(event interface{}, group map[string]networkRoundTrip) {
+	requestID := string(getRequestID(event))
+
+	relEvent, ok := group[requestID]
+	if !ok {
+		relEvent = networkRoundTrip{}
+	}
+
 	switch ev := event.(type) {
 	case *network.EventRequestWillBeSent:
-		requestID := string(ev.RequestID)
-		if relEvent, ok := group[requestID]; ok {
-			relEvent.requestEvent = ev
-			group[requestID] = relEvent
-		} else {
-			group[requestID] = networkRoundTrip{
-				requestEvent: ev,
-			}
-		}
+		relEvent.requestEvent = ev
 	case *network.EventResponseReceived:
-		requestID := string(ev.RequestID)
-
-		if relEvent, ok := group[requestID]; ok {
-			relEvent.responseEvent = ev
-			group[requestID] = relEvent
-		} else {
-			group[requestID] = networkRoundTrip{
-				responseEvent: ev,
-			}
-		}
+		relEvent.responseEvent = ev
 	}
+
+	group[requestID] = relEvent
 }
 
 // LogAjaxRequest will call monitorPageNetwork on every pages, logging the result using writer
