@@ -5,7 +5,6 @@ import (
 	"encoding/csv"
 	"io"
 	"log"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -13,14 +12,8 @@ import (
 
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
-	"github.com/dustin/go-humanize"
 	"golang.org/x/sync/errgroup"
 )
-
-type networkRoundTrip struct {
-	requestEvent  *network.EventRequestWillBeSent
-	responseEvent *network.EventResponseReceived
-}
 
 // getResourceType is a makeshift function to retrieve the ResourceType value
 // from various event. Think about an interface, but since these events don't share any,
@@ -50,27 +43,6 @@ func getRequestID(event interface{}) network.RequestID {
 	}
 }
 
-func formatEventLog(eventGroup networkRoundTrip) []string {
-	page := eventGroup.requestEvent.Request.Headers["Referer"].(string)
-	status := strconv.FormatInt(eventGroup.responseEvent.Response.Status, 10)
-	size := humanize.Bytes(uint64(eventGroup.responseEvent.Response.EncodedDataLength))
-
-	responseTime := eventGroup.responseEvent.Timestamp.Time()
-	requestTime := eventGroup.requestEvent.Timestamp.Time()
-
-	timeDiff := responseTime.Sub(requestTime)
-
-	return []string{
-		page,                                   // Page
-		eventGroup.requestEvent.Request.URL,    // URL
-		status,                                 // Status
-		eventGroup.requestEvent.Type.String(),  // Resource Type
-		eventGroup.requestEvent.Request.Method, // Method
-		size,                                   // Size
-		timeDiff.String(),                      // Time
-	}
-}
-
 func pairRequestEvent(event interface{}, group map[string]networkRoundTrip) {
 	requestID := string(getRequestID(event))
 
@@ -91,9 +63,7 @@ func pairRequestEvent(event interface{}, group map[string]networkRoundTrip) {
 
 // LogAjaxRequest will call monitorPageNetwork on every pages, logging the result using writer
 func LogAjaxRequest(ctx context.Context, writer io.Writer, pages []ajaxdetector.PageInfo) error {
-	eventLogs := [][]string{
-		{"Page", "URL", "Status", "Resource Type", "Method", "Size", "Time"},
-	}
+	eventLogs := [][]string{csvHeader}
 
 	eventsChan := make(chan []interface{}, len(pages))
 	group, ctx := errgroup.WithContext(ctx)
@@ -133,7 +103,7 @@ func LogAjaxRequest(ctx context.Context, writer io.Writer, pages []ajaxdetector.
 
 	for _, relatedEvent := range eventGroup {
 		if relatedEvent.requestEvent != nil && relatedEvent.responseEvent != nil {
-			eventLogs = append(eventLogs, formatEventLog(relatedEvent))
+			eventLogs = append(eventLogs, relatedEvent.formatLog())
 		}
 	}
 
