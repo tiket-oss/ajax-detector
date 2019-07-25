@@ -15,20 +15,39 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type relatedEvents struct {
+	requestEvent  *network.EventRequestWillBeSent
+	responseEvent *network.EventResponseReceived
+}
+
 func formatEventLog(ev interface{}) []string {
 	switch event := ev.(type) {
 	case *network.EventRequestWillBeSent:
 		referer := event.Request.Headers["Referer"].(string)
-		return []string{referer, event.Request.URL, event.Request.Method}
+		return []string{referer, event.Request.URL, "{status}", event.Type.String(), event.Request.Method, "{size}", "{time}"}
 	}
 
 	return nil
 }
 
+func pairRelatedEvents(event interface{}, group map[string]relatedEvents) {
+	switch ev := event.(type) {
+	case *network.EventRequestWillBeSent:
+		requestID := string(ev.RequestID)
+		if relEvent, ok := group[requestID]; ok {
+			relEvent.requestEvent = ev
+		} else {
+			group[requestID] = relatedEvents{
+				requestEvent: ev,
+			}
+		}
+	}
+}
+
 // LogAjaxRequest will call monitorPageNetwork on every pages, logging the result using writer
 func LogAjaxRequest(ctx context.Context, writer io.Writer, pages []ajaxdetector.PageInfo) error {
 	eventLogs := [][]string{
-		{"Referer", "URL", "Method"},
+		{"Page", "URL", "Status", "Type", "Method", "Size", "Time"},
 	}
 
 	eventsChan := make(chan []interface{}, len(pages))
@@ -58,11 +77,17 @@ func LogAjaxRequest(ctx context.Context, writer io.Writer, pages []ajaxdetector.
 		return err
 	}
 
+	eventGroup := make(map[string]relatedEvents)
 	close(eventsChan)
+
 	for events := range eventsChan {
 		for _, event := range events {
-			eventLogs = append(eventLogs, formatEventLog(event))
+			pairRelatedEvents(event, eventGroup)
 		}
+	}
+
+	for _, relatedEvent := range eventGroup {
+		eventLogs = append(eventLogs, formatEventLog(relatedEvent.requestEvent))
 	}
 
 	csvWriter := csv.NewWriter(writer)
