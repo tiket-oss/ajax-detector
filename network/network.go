@@ -22,6 +22,20 @@ type networkRoundTrip struct {
 	responseEvent *network.EventResponseReceived
 }
 
+// getResourceType is a makeshift function to retrieve the ResourceType value
+// from various event. Think about an interface, but since these events don't share any,
+// this function serve a similar purpose.
+func getResourceType(event interface{}) network.ResourceType {
+	switch ev := event.(type) {
+	case *network.EventRequestWillBeSent:
+		return ev.Type
+	case *network.EventResponseReceived:
+		return ev.Type
+	default:
+		return ""
+	}
+}
+
 func formatEventLog(eventGroup networkRoundTrip) []string {
 	page := eventGroup.requestEvent.Request.Headers["Referer"].(string)
 	status := strconv.FormatInt(eventGroup.responseEvent.Response.Status, 10)
@@ -133,15 +147,9 @@ func MonitorPageNetwork(ctx context.Context, pageURL string) ([]interface{}, err
 
 	chromedp.ListenTarget(ctx, func(v interface{}) {
 		switch event := v.(type) {
-		case *network.EventRequestWillBeSent:
-			if event.Type == network.ResourceTypeFetch || event.Type == network.ResourceTypeXHR {
-				group.Add(1)
-				go func() {
-					eventChan <- event
-				}()
-			}
-		case *network.EventResponseReceived:
-			if event.Type == network.ResourceTypeFetch || event.Type == network.ResourceTypeXHR {
+		case *network.EventRequestWillBeSent, *network.EventResponseReceived:
+			resourceType := getResourceType(event)
+			if resourceType == network.ResourceTypeFetch || resourceType == network.ResourceTypeXHR {
 				group.Add(1)
 				go func() {
 					eventChan <- event
