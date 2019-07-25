@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"io"
 	"log"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -12,33 +13,57 @@ import (
 
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
+	"github.com/dustin/go-humanize"
 	"golang.org/x/sync/errgroup"
 )
 
-type relatedEvents struct {
+type networkRoundTrip struct {
 	requestEvent  *network.EventRequestWillBeSent
 	responseEvent *network.EventResponseReceived
 }
 
-func formatEventLog(ev interface{}) []string {
-	switch event := ev.(type) {
-	case *network.EventRequestWillBeSent:
-		referer := event.Request.Headers["Referer"].(string)
-		return []string{referer, event.Request.URL, "{status}", event.Type.String(), event.Request.Method, "{size}", "{time}"}
-	}
+func formatEventLog(eventGroup networkRoundTrip) []string {
+	page := eventGroup.requestEvent.Request.Headers["Referer"].(string)
+	status := strconv.FormatInt(eventGroup.responseEvent.Response.Status, 10)
+	size := humanize.Bytes(uint64(eventGroup.responseEvent.Response.EncodedDataLength))
 
-	return nil
+	responseTime := eventGroup.responseEvent.Timestamp.Time()
+	requestTime := eventGroup.requestEvent.Timestamp.Time()
+
+	timeDiff := responseTime.Sub(requestTime)
+
+	return []string{
+		page,                                   // Page
+		eventGroup.requestEvent.Request.URL,    // URL
+		status,                                 // Status
+		eventGroup.requestEvent.Type.String(),  // Resource Type
+		eventGroup.requestEvent.Request.Method, // Method
+		size,                                   // Size
+		timeDiff.String(),                      // Time
+	}
 }
 
-func pairRelatedEvents(event interface{}, group map[string]relatedEvents) {
+func pairRequestEvent(event interface{}, group map[string]networkRoundTrip) {
 	switch ev := event.(type) {
 	case *network.EventRequestWillBeSent:
 		requestID := string(ev.RequestID)
 		if relEvent, ok := group[requestID]; ok {
 			relEvent.requestEvent = ev
+			group[requestID] = relEvent
 		} else {
-			group[requestID] = relatedEvents{
+			group[requestID] = networkRoundTrip{
 				requestEvent: ev,
+			}
+		}
+	case *network.EventResponseReceived:
+		requestID := string(ev.RequestID)
+
+		if relEvent, ok := group[requestID]; ok {
+			relEvent.responseEvent = ev
+			group[requestID] = relEvent
+		} else {
+			group[requestID] = networkRoundTrip{
+				responseEvent: ev,
 			}
 		}
 	}
@@ -47,7 +72,7 @@ func pairRelatedEvents(event interface{}, group map[string]relatedEvents) {
 // LogAjaxRequest will call monitorPageNetwork on every pages, logging the result using writer
 func LogAjaxRequest(ctx context.Context, writer io.Writer, pages []ajaxdetector.PageInfo) error {
 	eventLogs := [][]string{
-		{"Page", "URL", "Status", "Type", "Method", "Size", "Time"},
+		{"Page", "URL", "Status", "Resource Type", "Method", "Size", "Time"},
 	}
 
 	eventsChan := make(chan []interface{}, len(pages))
@@ -77,17 +102,19 @@ func LogAjaxRequest(ctx context.Context, writer io.Writer, pages []ajaxdetector.
 		return err
 	}
 
-	eventGroup := make(map[string]relatedEvents)
+	eventGroup := make(map[string]networkRoundTrip)
 	close(eventsChan)
 
 	for events := range eventsChan {
 		for _, event := range events {
-			pairRelatedEvents(event, eventGroup)
+			pairRequestEvent(event, eventGroup)
 		}
 	}
 
 	for _, relatedEvent := range eventGroup {
-		eventLogs = append(eventLogs, formatEventLog(relatedEvent.requestEvent))
+		if relatedEvent.requestEvent != nil && relatedEvent.responseEvent != nil {
+			eventLogs = append(eventLogs, formatEventLog(relatedEvent))
+		}
 	}
 
 	csvWriter := csv.NewWriter(writer)
@@ -107,6 +134,13 @@ func MonitorPageNetwork(ctx context.Context, pageURL string) ([]interface{}, err
 	chromedp.ListenTarget(ctx, func(v interface{}) {
 		switch event := v.(type) {
 		case *network.EventRequestWillBeSent:
+			if event.Type == network.ResourceTypeFetch || event.Type == network.ResourceTypeXHR {
+				group.Add(1)
+				go func() {
+					eventChan <- event
+				}()
+			}
+		case *network.EventResponseReceived:
 			if event.Type == network.ResourceTypeFetch || event.Type == network.ResourceTypeXHR {
 				group.Add(1)
 				go func() {
