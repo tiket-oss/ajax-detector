@@ -7,6 +7,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	ajaxdetector "github.com/tiket-libre/ajax-detector"
 
@@ -151,6 +152,13 @@ func MonitorPageNetwork(ctx context.Context, pageURL string) ([]interface{}, err
 			if strings.Compare(state, "complete") == 0 {
 				break
 			}
+		}
+
+		select {
+		case <-ctx.Done():
+			log.Printf("Sleep canceled by context")
+		case <-time.After(1 * time.Second):
+			log.Printf("Waited 1 second to ensure all network call has been made...")
 		}
 
 		group.Wait()
