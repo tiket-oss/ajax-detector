@@ -4,14 +4,18 @@ This tool utilises [chromedp](http://github.com/chromedp/chromedp), an automated
 
 ## Installation
 
-To use this tool, after cloning it in your machine, run the `make build` command on the clone directory, it basically will run a `go build` command, and the binary will be built on the `bin/` directory of the repository.
+To install this tool, run the following command:
+
+```sh
+go get -v github.com/tiket-libre/ajax-detector
+```
 
 ## Usage
 
 There are couple of ways you can run this tool. One is by passing the page URLs as a command argument(s):
 
 ```text
-./page-profile https://www.tiket.com https://www.tiket.com/pesawat
+ajax-detector https://www.tiket.com https://www.tiket.com/pesawat
 ```
 
 However, there's also a mechanism to load a configuration file by using the `--config` file (or just `-c` for short). Simply provide the path to your configuration file as the flag value. **NOTE:** using this flag will ignore the argument(s) in the previous example. The configuration file is formatted like the following:
@@ -32,8 +36,8 @@ url = "https://www.tiket.com/hotel"
 
 And to use the configuration file run:
 
-```text
-./page-profile -c path/to/config.toml
+```sh
+ajax-detector -c path/to/config.toml
 ```
 
 Other than that, you can use these following flags as well.
