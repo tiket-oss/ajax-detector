@@ -8,23 +8,40 @@ To use this tool, after cloning it in your machine, run the `make build` command
 
 ## Usage
 
-There are couple of ways you can run this tool. If you want to run against a single web page, Simply by passing the page URL as a command will suffice:
+There are couple of ways you can run this tool. One is by passing the page URLs as a command argument(s):
 
 ```text
-./page-profile www.tiket.com
+./page-profile https://www.tiket.com https://www.tiket.com/pesawat
 ```
 
-However, if you'd like to profile several web pages, using the previous snippet multiple times may be cumbersome. In order to ease this, there's a mechanism to load a configuration file by using the `--config-path` file (or just `-c` for short). Simply provide the path to your configuration file as the flag value. **NOTE:** using this flag will ignore the argument in the previous example.
+However, there's also a mechanism to load a configuration file by using the `--config` file (or just `-c` for short). Simply provide the path to your configuration file as the flag value. **NOTE:** using this flag will ignore the argument(s) in the previous example. The configuration file is formatted like the following:
+
+```toml
+[[pages]]
+name = "Tiket.com - Main landing page"
+url = "https://www.tiket.com"
+
+[[pages]]
+name = "Tiket.com - Pesawat landing page"
+url = "https://www.tiket.com/pesawat"
+
+[[pages]]
+name = "Tiket.com - Hotel landing page"
+url = "https://www.tiket.com/hotel"
+```
+
+And to use the configuration file run:
 
 ```text
 ./page-profile -c path/to/config.toml
 ```
 
-On top of the basic usage, you can use these following flags as well.
+Other than that, you can use these following flags as well.
 
 ```text
 Flags:
-  -h, --help                 help for page-profile
-  -o, --output-path string   Specify directory Path path for output (default "output.txt")
-  -t, --timeout int          Set timeout for the execution, in seconds (default 15)
+  -c, --config string   Path to configuration file (default "config.toml")
+  -h, --help            help for page-profile
+  -o, --output string   Specify directory Path path for output (default "output.csv")
+  -t, --timeout int     Set timeout for the execution, in seconds (default 15)
 ```
