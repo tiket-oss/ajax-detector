@@ -7,6 +7,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
@@ -149,6 +150,15 @@ func MonitorPageNetwork(ctx context.Context, pageURL string) ([]interface{}, err
 			if strings.Compare(state, "complete") == 0 {
 				break
 			}
+		}
+
+		/*
+			HACK: This mechanism was put to improve the chance to ensure that
+			all network calls have been made by the time the document is ready
+		*/
+		select {
+		case <-ctx.Done():
+		case <-time.After(1 * time.Second):
 		}
 
 		group.Wait()
