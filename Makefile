@@ -3,7 +3,7 @@ SAMPLE_PAGE_URL = https://www.google.com
 
 .PHONY: build
 build:
-	go build -o bin/$(TARGET) main/main.go
+	go build -o bin/$(TARGET)
 
 .PHONY: testrun
 testrun: build
