@@ -152,11 +152,13 @@ func MonitorPageNetwork(ctx context.Context, pageURL string) ([]interface{}, err
 			}
 		}
 
+		/*
+			HACK: This mechanism was put to improve the chance to ensure that
+			all network calls have been made by the time the document is ready
+		*/
 		select {
 		case <-ctx.Done():
-			log.Printf("Sleep canceled by context")
 		case <-time.After(1 * time.Second):
-			log.Printf("Waited 1 second to ensure all network call has been made...")
 		}
 
 		group.Wait()
