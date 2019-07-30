@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -12,48 +14,60 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/spf13/cobra"
 
-	ajaxdetector "github.com/tiket-libre/ajax-detector"
 	"github.com/tiket-libre/ajax-detector/network"
 )
 
-var outputPath string
-var configPath string
-var timeout int
+var (
+	outputPath string
+	configPath string
+	timeout    int
+)
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&outputPath, "output-path", "o", "output.csv", "Specify directory Path path for output")
-	rootCmd.PersistentFlags().StringVarP(&configPath, "config-path", "c", "config.toml", "Path to configuration file")
-	rootCmd.PersistentFlags().IntVarP(&timeout, "timeout", "t", 15, "Set timeout for the execution, in seconds")
+	rootCmd.PersistentFlags().
+		StringVarP(&outputPath, "output", "o", "output.csv", "Specify directory Path path for output")
+	rootCmd.PersistentFlags().
+		StringVarP(&configPath, "config", "c", "config.toml", "Path to configuration file")
+	rootCmd.PersistentFlags().
+		IntVarP(&timeout, "timeout", "t", 15, "Set timeout for the execution, in seconds")
 }
 
 var rootCmd = &cobra.Command{
 	Use:   "page-profile",
 	Short: "Page Profile is a tool to analyze web page using Chrome DevTools",
-	Args:  cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		pages := make([]ajaxdetector.PageInfo, 0)
+	Args: func(cmd *cobra.Command, args []string) error {
+		if len(args) < 1 {
+			if !cmd.Flags().Changed("config") {
+				return errors.New("--config flag is required when providing no argument")
+			}
+			return nil
+		}
 
-		if cmd.Flags().Changed("config-path") {
+		pageURLs := args[0:]
+		for _, pageURL := range pageURLs {
+			if !govalidator.IsURL(pageURL) {
+				msg := fmt.Sprintf("%s is not a valid URL", pageURL)
+				return errors.New(msg)
+			}
+		}
+
+		return nil
+	},
+	Run: func(cmd *cobra.Command, args []string) {
+		var pages []string
+
+		if cmd.Flags().Changed("config") {
 			var err error
-			pages, err = readFromConfigFile(configPath)
-			if err != nil {
+			if pages, err = readFromConfigFile(configPath); err != nil {
 				log.Fatal(err)
-				os.Exit(1)
 			}
 		} else {
-			pageURL := args[0]
-			if pageURL != "" && !govalidator.IsURL(pageURL) {
-				log.Fatalf("%s is not a valid URL\n", pageURL)
-				os.Exit(1)
-			}
-
-			pages = append(pages, ajaxdetector.PageInfo{URL: pageURL})
+			pages = args[0:]
 		}
 
 		outFile, err := createOutputFile(outputPath)
 		if err != nil {
 			log.Fatal(err)
-			os.Exit(1)
 		}
 
 		// Create a timeout
@@ -69,8 +83,7 @@ var rootCmd = &cobra.Command{
 // Execute encapsulates the Execute method from rootCmd variable
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Println(err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 }
 
@@ -83,8 +96,8 @@ func createOutputFile(filePath string) (io.Writer, error) {
 	return os.Create(filePath)
 }
 
-func readFromConfigFile(configPath string) ([]ajaxdetector.PageInfo, error) {
-	pages := make([]ajaxdetector.PageInfo, 0)
+func readFromConfigFile(configPath string) ([]string, error) {
+	pages := make([]string, 0)
 
 	config, err := toml.LoadFile(configPath)
 	if err != nil {
@@ -93,10 +106,7 @@ func readFromConfigFile(configPath string) ([]ajaxdetector.PageInfo, error) {
 
 	pageConfigs := config.Get("pages").([]*toml.Tree)
 	for _, pageConfig := range pageConfigs {
-		pages = append(pages, ajaxdetector.PageInfo{
-			Name: pageConfig.Get("name").(string),
-			URL:  pageConfig.Get("url").(string),
-		})
+		pages = append(pages, pageConfig.Get("url").(string))
 	}
 
 	return pages, nil

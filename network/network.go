@@ -9,8 +9,6 @@ import (
 	"sync"
 	"time"
 
-	ajaxdetector "github.com/tiket-libre/ajax-detector"
-
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
 	"golang.org/x/sync/errgroup"
@@ -63,7 +61,7 @@ func pairRequestEvent(event interface{}, group map[string]networkRoundTrip) {
 }
 
 // LogAjaxRequest will call monitorPageNetwork on every pages, logging the result using writer
-func LogAjaxRequest(ctx context.Context, writer io.Writer, pages []ajaxdetector.PageInfo) error {
+func LogAjaxRequest(ctx context.Context, writer io.Writer, pages []string) error {
 	eventLogs := [][]string{csvHeader}
 
 	eventsChan := make(chan []interface{}, len(pages))
@@ -74,7 +72,7 @@ func LogAjaxRequest(ctx context.Context, writer io.Writer, pages []ajaxdetector.
 	defer cancel()
 
 	for _, page := range pages {
-		pageURL := page.URL // https://golang.org/doc/faq#closures_and_goroutines
+		pageURL := page // https://golang.org/doc/faq#closures_and_goroutines
 		group.Go(func() error {
 			// Create new tab for each page
 			ctxt, cancel := chromedp.NewContext(ctx)
